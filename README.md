@@ -68,7 +68,7 @@ Se você está visando o melhor pico de rendimento, nossa recomendação geral �
 
 Em nosso perfil  `optimized`  ele é ativado via `<buildArg>--gc=G1</buildArg>`.
 
-## Optimization levels in Native Image
+## Nivel de otimização para Imagens Nativas 📈
 
 Existem vários níveis de otimizações em Native Image, que podem ser definidos no momento da construção:
 
