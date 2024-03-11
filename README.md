@@ -1,14 +1,15 @@
-# Build a Native Spring Application
+
+# Construa uma Aplicação Nativa Spring
 
 ```mvn -Pnative native:compile```
 
-It's a standard native compilation command that would work on any Spring Boot app with GraalVM Native Image support enabled as a dependency.
+É um comando padrão de compilação nativa que funcionaria em qualquer aplicação Spring Boot com suporte a GraalVM Native Image habilitado como uma dependência.
 
-# Spring Boot AOT engine and GraalVM
+# Motor AOT do Spring Boot e GraalVM
 
-# Dev Mode
+# Modo Dev
 
-For development purposes, you can speed up native builds by passing the `-Ob` flag: either via the command line, or in the Native Maven plugin:
+Para fins de desenvolvimento, você pode acelerar as compilações nativas passando a flag `-Ob`: seja via linha de comando, ou no plugin Maven Nativo:
 
 ```xml
 <plugin>
@@ -22,79 +23,83 @@ For development purposes, you can speed up native builds by passing the `-Ob` fl
 </plugin>
 ```
 
-This will speed up the compilation phase, and therefore the overall build time will be ~15-20% faster.
+Isso acelerará a fase de compilação, e portanto o tempo total de construção será ~15-20% mais rápido.
 
-This is intended as a dev mode, make sure to remove the flag before deploying to production to get the best performance.
+Isso é destinado como um modo dev, certifique-se de remover a flag antes de implantar em produção para obter o melhor desempenho.
 
-# Optimize performance
+# Otimizar desempenho
 
 ## PGO 🚀
 
-One of the most powerful performance optimizations in Native Image is profile-guided optimizations (PGO).
+Uma das otimizações de desempenho mais poderosas em Native Image é otimizações guiadas por perfil (PGO).
 
-1. Build an instrumented image: 
+
+1. Construa uma imagem instrumentada: 
 
 ```mvn -Pinstrumented native:compile```
 
-2. Run the app and apply relevant workload:
+2. Execute o aplicativo e aplique a carga de trabalho relevante:
 
 ```./target/demo-instrumented```
 
 ```hey -n=1000000 http://localhost:8080/hello```
 
-after you shut down the app, you'll see an `iprof` file in your working directory.
+depois de desligar o aplicativo, você verá um arquivo iprof em seu diretório de trabalho.
 
-3. Build an app with profiles (they are being picked up via `<buildArg>--pgo=${project.basedir}/default.iprof</buildArg>`):
+3. Construa um aplicativo com perfis (eles são selecionados via `<buildArg>--pgo=${project.basedir}/default.iprof</buildArg>`):
 
 ```mvn -Poptimized native:compile```
 
 
-## ML-enabled PGO 👩‍🔬
+## PGO habilitado para ML 👩‍🔬
 
-The PGO approach described above, where the profiles are customly collected and tailored for your app, is the recommended way to do PGO in Native Image. 
+A abordagem PGO descrita acima, onde os perfis são coletados e adaptados para o seu aplicativo, é a maneira recomendada de fazer PGO em Native Image.
 
-There can be situations though when collecting profiles is not possible – for example, because of your deployment model or other reasons. In that case, it's still possible to get profiling information and optimize the app based on it via ML-enabled PGO. Native Image contains a pre-trained ML model that predicts the probabilities of the control flow graph branches, which lets us additionally optimize the app. This is again available in Oracle GraalVM and you don't need to enable it – it kicks in automatically  in the absence of custom profiles. 
+No entanto, pode haver situações em que a coleta de perfis não é possível - por exemplo, por causa do seu modelo de implantação ou outros motivos. Nesse caso, ainda é possível obter informações de perfil e otimizar o aplicativo com base nelas via PGO habilitado para ML. Native Image contém um modelo ML pré-treinado que prevê as probabilidades dos ramos do gráfico de fluxo de controle, o que nos permite otimizar adicionalmente o aplicativo. Isso está novamente disponível no Oracle GraalVM e você não precisa ativá-lo - ele é acionado automaticamente na ausência de perfis personalizados.
 
-If you are curious about the impact if this optimization, you can disable it with `-H:-MLProfileInference`. In our measurements, this optimization provides ~6% runtime performance improvement, which is pretty cool for an optimization you automatically get out of the box.
+Se você está curioso sobre o impacto dessa otimização, pode desativá-la com `-H:-MLProfileInference`. . Em nossas medições, essa otimização fornece ~6% de melhoria no desempenho em tempo de execução, o que é muito legal para uma otimização que você obtém automaticamente.
 
 
 ## G1 GC 🧹
 
-There could be different GC strategies. The default GC in Native Image, Serial GC, can be beneficial in certain scenarios, for example if you have a short-lived application or want to optimize memory usage. 
+Pode haver diferentes estratégias de GC. O GC padrão em Native Image, Serial GC, pode ser benéfico em certos cenários, por exemplo, se você tem um aplicativo de curta duração ou quer otimizar o uso de memória.
 
-If you are aiming for the best peak throughput, our general recommendation is to try the G1 GC (Note that you need Oracle GraalVM for it). 
+Se você está visando o melhor pico de rendimento, nossa recomendação geral é tentar o G1 GC (Note que você precisa do Oracle GraalVM para isso).
 
-In our `optimized` profile it's enabled via `<buildArg>--gc=G1</buildArg>`.
+Em nosso perfil  `optimized`  ele é ativado via `<buildArg>--gc=G1</buildArg>`.
 
 ## Optimization levels in Native Image
 
-There are several levels of optimizations in Native Image, that can be set at build time:
+Existem vários níveis de otimizações em Native Image, que podem ser definidos no momento da construção:
 
-- `-O0` - No optimizations: Recommended optimization level for debugging native images;
+- `-O0` - Sem otimizações: Nível de otimização recomendado para depuração de imagens nativas;
 
-- `-O1` - Basic optimizations: Basic GraalVM compiler optimizations, still works for debugging;
+- `-O1` -  Otimizações básicas: Otimizações básicas do compilador GraalVM, ainda funciona para depuração;
  
-- `-O2`  - Advanced optimizations: default optimization level for Native Image;
+- `-O2`  - Otimizações avançadas: nível de otimização padrão para Native Image;
 
-- `-O3` - All optimizations for best performance;
+- `-O3` - Todas as otimizações para melhor desempenho;
 
-- `-Ob` - Optimize for fastest build time: use only for dev purposes for faster feedback, remove before compiling for deployment;
+- `-Ob` - -Ob - Otimizar para o tempo de construção mais rápido: use apenas para fins de desenvolvimento para um feedback mais rápido, remova antes de compilar para implantação;
 
-- `-pgo`: Using PGO will automatically trigger `-O3` for best performance.
-
-
+- `-pgo`: Usar PGO acionará automaticamente `-O3` para melhor desempenho.
+  
 # Testing 🧪
 
-GraalVM's Native Build Tools support testing applications as native images, including JUnit support. The way this works is that your tests are compiled as native executables to verify that things work in the native world as expected. Test our application with the following:
+As Ferramentas de Construção Nativa do GraalVM suportam o teste de aplicativos como imagens nativas, incluindo suporte ao JUnit. A maneira como isso funciona é que seus testes são compilados como executáveis nativos para verificar se as coisas funcionam no mundo nativo como esperado. Teste nosso aplicativo com o seguinte:
 
  ```mvn -PnativeTest test```
 
-`HttpRequestTest` will verify that our application returns the expected message.
+`HttpRequestTest` verificará se nosso aplicativo retorna a mensagem esperada.
 
-Native testing recommendation: you don't need to test in the mode all the time, especially if you are working with frameworks and libraries that support Native Image – usually everything just works. Develop and test your application on the JVM, and test in Native once in a while, as a part of your CI/CD process, or if you are introducing a new dependency, or changing things that are sensitive for Native Image (reflection etc). 
+Recomendação de teste nativo: você não precisa testar no modo o tempo todo, especialmente se estiver trabalhando com frameworks e bibliotecas que suportam Native Image - geralmente tudo funciona. Desenvolva e teste seu aplicativo na JVM, e teste em Native de vez em quando, como parte de seu processo de CI/CD, ou se você estiver introduzindo uma nova dependência, ou mudando coisas que são sensíveis para Native Image (reflexão etc). 
 
 # Using libraries
 
 # Configuring reflection
 
 # Monitoring 📈
+
+
+
+
